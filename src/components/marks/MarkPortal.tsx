@@ -896,11 +896,22 @@ export const MarkPortal: React.FC<MarkPortalProps> = ({
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet);
+        let sheet = workbook.Sheets[workbook.SheetNames[0]];
+        let json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet);
+
+        if (!json.length && workbook.SheetNames.length > 1) {
+          for (let s = 1; s < workbook.SheetNames.length; s++) {
+            const nextSheet = workbook.Sheets[workbook.SheetNames[s]];
+            const nextJson = XLSX.utils.sheet_to_json<Record<string, any>>(nextSheet);
+            if (nextJson.length > 0) {
+              json = nextJson;
+              break;
+            }
+          }
+        }
 
         if (!json.length) {
-          alert('Excel spreadsheet is empty');
+          alert('Excel spreadsheet is empty or has no readable rows.');
           return;
         }
 

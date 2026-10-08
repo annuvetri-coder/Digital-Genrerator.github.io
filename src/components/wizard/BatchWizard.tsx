@@ -128,11 +128,36 @@ export const BatchWizard: React.FC<BatchWizardProps> = ({ onFinish, onVerifyCert
     });
   };
 
+  const handleSaveAsCustomTemplate = async (templateToSave: CertificateTemplate) => {
+    const saved = await api.saveTemplate(templateToSave);
+    setSavedTemplates((prev) => [saved, ...prev.filter((t) => t.id !== saved.id)]);
+    setSelectedTemplate(saved);
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    await api.deleteTemplate(templateId);
+    setSavedTemplates((prev) => prev.filter((t) => t.id !== templateId));
+    if (selectedTemplate.id === templateId) {
+      setSelectedTemplate(savedTemplates.find((t) => t.id !== templateId) || PRESET_TEMPLATES[0]);
+    }
+  };
+
   // Convert parsed Excel data to raw students whenever mapping or parsedData changes
   const applyExcelMappingToStudents = () => {
     if (!parsedData || !columnMapping.studentNameColumn) return;
 
-    const raw = parsedData.rows.map((row, idx) => {
+    // Filter out rows where student name is empty or all blank
+    const validRows = parsedData.rows.filter((row) => {
+      const name = String(row[columnMapping.studentNameColumn] || '').trim();
+      return name.length > 0;
+    });
+
+    if (validRows.length === 0) {
+      alert(`No valid student names found in column "${columnMapping.studentNameColumn}". Please select the correct column.`);
+      return;
+    }
+
+    const raw = validRows.map((row, idx) => {
       const name = String(row[columnMapping.studentNameColumn] || '').trim();
       const course = columnMapping.courseColumn
         ? String(row[columnMapping.courseColumn] || '').trim()
@@ -165,17 +190,6 @@ export const BatchWizard: React.FC<BatchWizardProps> = ({ onFinish, onVerifyCert
     setValidationReport(report);
   };
 
-  // Validate students whenever they change
-  useEffect(() => {
-    const { validatedStudents, report } = validateStudentBatch(students, existingCertNumbers);
-    setValidationReport(report);
-  }, [students, existingCertNumbers]);
-
-  const handleSaveAsCustomTemplate = async (templateToSave: CertificateTemplate) => {
-    const saved = await api.saveTemplate(templateToSave);
-    setSavedTemplates((prev) => [saved, ...prev.filter((t) => t.id !== saved.id)]);
-  };
-
   const steps = [
     { num: 1, title: 'Batch & Template', icon: FolderGit2 },
     { num: 2, title: 'Template Editor', icon: Layers },
@@ -193,6 +207,14 @@ export const BatchWizard: React.FC<BatchWizardProps> = ({ onFinish, onVerifyCert
       }
     }
     if (currentStep === 3) {
+      if (!parsedData) {
+        alert('Please upload your Excel/CSV file or click "Use Sample Data" before continuing.');
+        return;
+      }
+      if (!columnMapping.studentNameColumn) {
+        alert('Please map the "Student Name Column" before continuing.');
+        return;
+      }
       applyExcelMappingToStudents();
     }
     if (currentStep === 4) {
@@ -286,6 +308,8 @@ export const BatchWizard: React.FC<BatchWizardProps> = ({ onFinish, onVerifyCert
             selectedTemplate={selectedTemplate}
             setSelectedTemplate={setSelectedTemplate}
             savedTemplates={savedTemplates}
+            onAddCustomTemplate={handleSaveAsCustomTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
           />
         )}
 
