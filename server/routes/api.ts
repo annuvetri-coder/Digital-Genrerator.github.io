@@ -1,7 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { getDatabase, saveDatabase } from '../db.js';
+import { getDatabase, saveDatabase } from '../db.ts';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'cert-gen-secure-secret-key-2026';
