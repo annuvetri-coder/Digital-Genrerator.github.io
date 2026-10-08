@@ -1,0 +1,6 @@
+{
+  "name": "Digital Certificate Generator",
+  "description": "Professional bulk digital certificate generator with drag-and-drop template editor, Excel mapping, automated unique numbering, and digital verification portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
