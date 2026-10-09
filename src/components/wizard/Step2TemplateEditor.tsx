@@ -35,12 +35,16 @@ import { useAuth } from '../../context/AuthContext';
 
 interface Step2Props {
   template: CertificateTemplate;
+  courseName?: string;
+  onCourseNameChange?: (newCourse: string) => void;
   onUpdateTemplate: (updated: CertificateTemplate) => void;
   onSaveAsCustomTemplate: (template: CertificateTemplate) => void;
 }
 
 export const Step2TemplateEditor: React.FC<Step2Props> = ({
   template,
+  courseName,
+  onCourseNameChange,
   onUpdateTemplate,
   onSaveAsCustomTemplate,
 }) => {
@@ -454,21 +458,48 @@ export const Step2TemplateEditor: React.FC<Step2Props> = ({
                         E-SIGNATURE
                       </span>
                     </div>
-                  ) : (
-                    <div
-                      className="w-full truncate px-1 py-0.5"
-                      style={{
-                        fontFamily: el.fontFamily,
-                        fontSize: `clamp(10px, ${el.fontSize * 0.45}px, 36px)`,
-                        fontWeight: el.fontWeight,
-                        fontStyle: el.fontStyle || 'normal',
-                        color: el.color,
-                        textAlign: el.textAlign,
-                      }}
-                    >
-                      {el.sampleText || el.field}
-                    </div>
-                  )}
+                  ) : (() => {
+                    const isStudentName =
+                      selectedElementId === el.id ||
+                      el.id === 'elem-student-name' ||
+                      el.field === '{{STUDENT_NAME}}';
+                    const isCourse =
+                      el.id === 'elem-course-name' ||
+                      el.field === '{{COURSE_NAME}}' ||
+                      el.field === '{{COURSE}}' ||
+                      (el.label && /course/i.test(el.label));
+
+                    const displayText = isCourse
+                      ? courseName || el.sampleText || 'Course / Program Title'
+                      : el.sampleText || el.field;
+
+                    const autoFit = el.autoFitFontSize ?? isStudentName;
+                    const autoAlign = el.autoAlignByLength ?? isStudentName;
+
+                    let computedSize = el.fontSize * 0.45;
+                    if (autoFit && displayText.length > 18) {
+                      const scale = Math.max(0.55, 18 / displayText.length);
+                      computedSize = Math.max(12, computedSize * scale);
+                    }
+
+                    const computedAlign = autoAlign ? 'center' : el.textAlign;
+
+                    return (
+                      <div
+                        className="w-full truncate px-1 py-0.5"
+                        style={{
+                          fontFamily: el.fontFamily,
+                          fontSize: `clamp(10px, ${computedSize}px, 38px)`,
+                          fontWeight: el.fontWeight,
+                          fontStyle: el.fontStyle || 'normal',
+                          color: el.color,
+                          textAlign: computedAlign,
+                        }}
+                      >
+                        {displayText}
+                      </div>
+                    );
+                  })()}
 
                   {/* Selected Badge */}
                   {isSelected && (
@@ -517,6 +548,34 @@ export const Step2TemplateEditor: React.FC<Step2Props> = ({
                 />
               </div>
 
+              {/* Course Title sync if course element is selected */}
+              {(selectedElement.id === 'elem-course-name' ||
+                selectedElement.field === '{{COURSE_NAME}}' ||
+                selectedElement.field === '{{COURSE}}' ||
+                (selectedElement.label && /course/i.test(selectedElement.label))) && (
+                <div className="p-2.5 rounded-lg bg-indigo-50/70 border border-indigo-200 space-y-1.5">
+                  <label className="block text-[11px] font-bold text-indigo-900 uppercase tracking-wider">
+                    Course / Program Title (Batch Sync)
+                  </label>
+                  <input
+                    type="text"
+                    value={courseName || selectedElement.sampleText || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      updateElement(selectedElement.id, { sampleText: val });
+                      if (onCourseNameChange) {
+                        onCourseNameChange(val);
+                      }
+                    }}
+                    placeholder="e.g. Full Stack Web Development"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-300 text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <p className="text-[10px] text-indigo-700">
+                    Editing this synchronizes the course title across the template, student roster, and certificate exports.
+                  </p>
+                </div>
+              )}
+
               {/* Sample Preview Text */}
               <div>
                 <label className="block text-slate-600 font-bold uppercase tracking-wider mb-1">
@@ -529,6 +588,95 @@ export const Step2TemplateEditor: React.FC<Step2Props> = ({
                   className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs"
                 />
               </div>
+
+              {/* Student Name Smart Features: Auto Font Size & Auto Alignment by Length */}
+              {(selectedElement.id === 'elem-student-name' ||
+                selectedElement.field === '{{STUDENT_NAME}}' ||
+                selectedElement.type === 'text') && (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
+                      Smart Dynamic Typography
+                    </span>
+                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                      Auto-Length Engine
+                    </span>
+                  </div>
+
+                  {/* Auto Font Size toggle */}
+                  <label className="flex items-start space-x-2 cursor-pointer text-xs">
+                    <input
+                      type="checkbox"
+                      checked={selectedElement.autoFitFontSize ?? (selectedElement.id === 'elem-student-name' || selectedElement.field === '{{STUDENT_NAME}}')}
+                      onChange={(e) =>
+                        updateElement(selectedElement.id, { autoFitFontSize: e.target.checked })
+                      }
+                      className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <span className="font-semibold text-slate-800">Automatic Font Size</span>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        Scales font size dynamically so long names never clip or touch certificate borders.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Auto Alignment toggle */}
+                  <label className="flex items-start space-x-2 cursor-pointer text-xs">
+                    <input
+                      type="checkbox"
+                      checked={selectedElement.autoAlignByLength ?? (selectedElement.id === 'elem-student-name' || selectedElement.field === '{{STUDENT_NAME}}')}
+                      onChange={(e) =>
+                        updateElement(selectedElement.id, { autoAlignByLength: e.target.checked })
+                      }
+                      className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <span className="font-semibold text-slate-800">Auto-Align by Name Length</span>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        Dynamically centers and balances the name horizontally according to its character length.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Quick Test Length Buttons */}
+                  {(selectedElement.id === 'elem-student-name' || selectedElement.field === '{{STUDENT_NAME}}') && (
+                    <div className="pt-1 border-t border-slate-200/80 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-600 uppercase">Test Name Lengths:</span>
+                      <div className="grid grid-cols-3 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updateElement(selectedElement.id, { sampleText: 'Ali Roy' })}
+                          className="px-1.5 py-1 text-[10px] font-medium rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 truncate"
+                          title="Short Name (7 chars)"
+                        >
+                          Short (7c)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateElement(selectedElement.id, { sampleText: 'Priyanka Sharma' })}
+                          className="px-1.5 py-1 text-[10px] font-medium rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 truncate"
+                          title="Medium Name (15 chars)"
+                        >
+                          Medium (15c)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateElement(selectedElement.id, {
+                              sampleText: 'Dr. Mohammed Abdul Rahman Al-Mansoor',
+                            })
+                          }
+                          className="px-1.5 py-1 text-[10px] font-medium rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 truncate"
+                          title="Long Name (36 chars)"
+                        >
+                          Long (36c)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Center Horizontally Shortcut */}
               <button

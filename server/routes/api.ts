@@ -340,6 +340,99 @@ router.put('/certificates/:certNumber/status', async (req, res) => {
   }
 });
 
+// Delete Single Certificate
+router.delete('/certificates/:certNumber', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const certNumber = req.params.certNumber;
+    db.run(
+      'DELETE FROM certificates WHERE certificate_number = ? OR id = ?',
+      [certNumber, certNumber]
+    );
+    saveDatabase(db);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete Bulk Certificates
+router.post('/certificates/bulk/delete', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const { certificateNumbers } = req.body;
+    if (Array.isArray(certificateNumbers) && certificateNumbers.length) {
+      for (const num of certificateNumbers) {
+        db.run('DELETE FROM certificates WHERE certificate_number = ? OR id = ?', [num, num]);
+      }
+      saveDatabase(db);
+    }
+    res.json({ success: true, count: certificateNumbers?.length || 0 });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Clear All Certificates
+router.post('/certificates/clear', async (_req, res) => {
+  try {
+    const db = await getDatabase();
+    db.run('DELETE FROM certificates');
+    saveDatabase(db);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Clear All Batches
+router.post('/batches/clear', async (_req, res) => {
+  try {
+    const db = await getDatabase();
+    db.run('DELETE FROM batches');
+    saveDatabase(db);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Clear All Mark Sessions
+router.post('/marks/clear', async (_req, res) => {
+  try {
+    const db = await getDatabase();
+    db.run('DELETE FROM mark_sessions');
+    saveDatabase(db);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Comprehensive Clear All Data
+router.post('/data/clear', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const { keepSettings, keepTemplates } = req.body || {};
+
+    db.run('DELETE FROM certificates');
+    db.run('DELETE FROM batches');
+    db.run('DELETE FROM mark_sessions');
+
+    if (!keepTemplates) {
+      db.run('DELETE FROM templates WHERE is_default = 0');
+    }
+    if (!keepSettings) {
+      db.run("DELETE FROM settings WHERE key = 'company_settings'");
+    }
+
+    saveDatabase(db);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 6. Public Verification API
 router.get('/verify/:certNumber', async (req, res) => {
   try {

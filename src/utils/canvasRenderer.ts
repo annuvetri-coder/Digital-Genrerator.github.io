@@ -286,23 +286,59 @@ export async function renderCertificateToCanvas(
 
     const fontStyle = element.fontStyle || 'normal';
     const fontWeight = element.fontWeight || 'normal';
-    const fontSize = element.fontSize || 32;
+    let fontSize = element.fontSize || (isStudentNameElem ? 54 : 32);
     const fontFamily = element.fontFamily || 'Inter';
+
+    // Automatic Font Size & Dynamic Alignment by Length (especially for Student Names)
+    const shouldAutoFit = element.autoFitFontSize ?? isStudentNameElem;
+    const shouldAutoAlign = element.autoAlignByLength ?? isStudentNameElem;
+
+    let align = element.textAlign || (isStudentNameElem ? 'center' : 'left');
+    let targetX = elX;
+
+    if (shouldAutoFit && textToDraw) {
+      // Determine maximum allowed horizontal width for the text
+      // Ensures the name remains inside safe margins (never clipped or touching outer borders)
+      const maxAllocatedWidth = elWidth
+        ? Math.min(baseWidth * 0.88, Math.max(elWidth, baseWidth * 0.55))
+        : baseWidth * 0.76;
+
+      ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}, sans-serif`;
+      let measuredWidth = ctx.measureText(textToDraw).width;
+
+      if (measuredWidth > maxAllocatedWidth && maxAllocatedWidth > 0) {
+        // Proportionally scale down the font size to fit safely
+        const scale = maxAllocatedWidth / measuredWidth;
+        fontSize = Math.max(20, Math.floor(fontSize * scale));
+      } else if (textToDraw.length <= 10 && fontSize < 64 && measuredWidth * 1.15 < maxAllocatedWidth) {
+        // Short names: give balanced optical presence
+        fontSize = Math.min(64, Math.round(fontSize * 1.10));
+      }
+    }
 
     ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}, sans-serif`;
     ctx.fillStyle = element.color || '#0F172A';
     ctx.textBaseline = 'top';
 
-    const align = element.textAlign || 'left';
-    ctx.textAlign = align;
-
-    let targetX = elX;
-    if (align === 'center' && elWidth) {
-      targetX = elX + elWidth / 2;
-    } else if (align === 'right' && elWidth) {
-      targetX = elX + elWidth;
+    if (shouldAutoAlign && isStudentNameElem) {
+      // Automatically align and center according to name length
+      align = 'center';
+      if (textToDraw.length > 22 || !elWidth) {
+        // Long names or unconstrained width: center along the full horizontal axis of the certificate
+        targetX = baseWidth / 2;
+      } else {
+        // Standard/medium names: center within the designated bounding box
+        targetX = elX + (elWidth ? elWidth / 2 : 0);
+      }
+    } else {
+      if (align === 'center' && elWidth) {
+        targetX = elX + elWidth / 2;
+      } else if (align === 'right' && elWidth) {
+        targetX = elX + elWidth;
+      }
     }
 
+    ctx.textAlign = align;
     ctx.fillText(textToDraw, targetX, elY);
     ctx.restore();
   }

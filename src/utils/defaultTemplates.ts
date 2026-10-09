@@ -137,6 +137,8 @@ export const DEFAULT_ELEMENTS: TemplateElement[] = [
     color: '#0F172A',
     textAlign: 'center',
     sampleText: 'Arun Kumar',
+    autoFitFontSize: true,
+    autoAlignByLength: true,
   },
   {
     id: 'elem-course-name',

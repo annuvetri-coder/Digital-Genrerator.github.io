@@ -16,6 +16,8 @@ export interface TemplateElement {
   letterSpacing?: number;
   sampleText?: string;
   imageUrl?: string; // custom image or e-signature data URL
+  autoFitFontSize?: boolean; // automatically scales font size down to fit allocated area
+  autoAlignByLength?: boolean; // automatically aligns & centers based on string length
 }
 
 export interface CertificateTemplate {

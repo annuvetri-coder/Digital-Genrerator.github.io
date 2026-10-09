@@ -98,6 +98,22 @@ export const BatchesManager: React.FC<BatchesManagerProps> = ({
     }
   };
 
+  const handleDeleteStudentCert = async (certNumber: string, studentName: string) => {
+    if (!confirm(`Permanently delete certificate for ${studentName} (${certNumber})?`)) return;
+    await api.deleteCertificate(certNumber);
+    if (selectedBatch) {
+      const updatedStudents = (selectedBatch.students || []).filter((s) => s.certificateNumber !== certNumber);
+      const updatedBatch: CertificateBatch = {
+        ...selectedBatch,
+        students: updatedStudents,
+        studentCount: updatedStudents.length,
+      };
+      await api.saveBatch(updatedBatch);
+      setSelectedBatch(updatedBatch);
+    }
+    await loadData();
+  };
+
   // --- OPEN DOWNLOAD ALL AS ZIP DIALOG ---
   const handleOpenZipDialog = (batch: CertificateBatch, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -593,6 +609,14 @@ export const BatchesManager: React.FC<BatchesManagerProps> = ({
                           className="text-[11px] font-semibold text-sky-600 hover:text-sky-800 underline"
                         >
                           Verify
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStudentCert(st.certificateNumber, st.studentName)}
+                          className="text-[11px] font-semibold text-rose-600 hover:text-rose-800 underline ml-1"
+                          title="Delete Certificate"
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>

@@ -32,7 +32,7 @@ export const Step5StudentPreview: React.FC<Step5Props> = ({
 
   // New Student State
   const [newStudentName, setNewStudentName] = useState('');
-  const [newCourseName, setNewCourseName] = useState(students[0]?.courseName || 'IoT Training');
+  const [newCourseName, setNewCourseName] = useState(students[0]?.courseName || 'Professional Training Program');
   const [newIssueDate, setNewIssueDate] = useState(students[0]?.issueDate || '05 October 2026');
 
   const filteredStudents = students.filter(

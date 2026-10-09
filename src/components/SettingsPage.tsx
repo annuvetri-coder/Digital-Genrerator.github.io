@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Check,
   Globe,
@@ -9,23 +9,84 @@ import {
   Building2,
   Mail,
   Lock,
+  Database,
+  Trash2,
+  AlertTriangle,
+  RotateCcw,
+  ShieldAlert,
+  X,
 } from 'lucide-react';
 import { CompanyLogo } from './CompanyLogo';
 import { AuthorizedSignatureManager } from './AuthorizedSignatureManager';
 import { CompanySettings } from '../types';
 import { useSettings } from '../context/SettingsContext';
 import { AVAILABLE_FONTS } from '../utils/defaultTemplates';
+import { api } from '../services/api';
 
 export const SettingsPage: React.FC = () => {
   const { settings, updateSettings } = useSettings();
   const [form, setForm] = useState<CompanySettings>({ ...settings });
   const [saveNotice, setSaveNotice] = useState(false);
 
+  // Storage Stats & Clear Data State
+  const [certCount, setCertCount] = useState(0);
+  const [batchCount, setBatchCount] = useState(0);
+  const [clearTarget, setClearTarget] = useState<'certificates' | 'batches' | 'marks' | 'all' | null>(null);
+  const [confirmInput, setConfirmInput] = useState('');
+  const [isClearing, setIsClearing] = useState(false);
+  const [clearSuccessMsg, setClearSuccessMsg] = useState<string | null>(null);
+
+  const loadStats = async () => {
+    try {
+      const [certs, batches] = await Promise.all([
+        api.getCertificates(),
+        api.getBatches(),
+      ]);
+      setCertCount(certs.length);
+      setBatchCount(batches.length);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await updateSettings(form);
     setSaveNotice(true);
     setTimeout(() => setSaveNotice(false), 3000);
+  };
+
+  const handleExecuteClear = async () => {
+    if (!clearTarget) return;
+    setIsClearing(true);
+    try {
+      if (clearTarget === 'certificates') {
+        await api.clearAllCertificates();
+        setClearSuccessMsg('All certificate records cleared successfully.');
+      } else if (clearTarget === 'batches') {
+        await api.clearAllBatches();
+        await api.clearAllCertificates();
+        setClearSuccessMsg('All batches and certificates cleared successfully.');
+      } else if (clearTarget === 'marks') {
+        await api.clearAllMarkSessions();
+        setClearSuccessMsg('All evaluation mark sessions cleared successfully.');
+      } else if (clearTarget === 'all') {
+        await api.clearAllData({ keepSettings: true, keepTemplates: true });
+        setClearSuccessMsg('System reset complete: All certificates, batches, and evaluations purged.');
+      }
+      setClearTarget(null);
+      setConfirmInput('');
+      await loadStats();
+      setTimeout(() => setClearSuccessMsg(null), 4000);
+    } catch (err: any) {
+      alert('Failed to clear data: ' + err.message);
+    } finally {
+      setIsClearing(false);
+    }
   };
 
   return (
@@ -271,6 +332,174 @@ export const SettingsPage: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/* Clear Data & Storage Management Center */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+        <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Database className="w-4 h-4 text-rose-600" />
+            <h2 className="font-bold text-slate-900 text-sm">System Storage & Clear Data Center</h2>
+          </div>
+          <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500">
+            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+              {certCount} Certificates
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+              {batchCount} Batches
+            </span>
+          </div>
+        </div>
+
+        {clearSuccessMsg && (
+          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center space-x-2 animate-in fade-in">
+            <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span>{clearSuccessMsg}</span>
+          </div>
+        )}
+
+        <p className="text-xs text-slate-500">
+          Manage local ledger storage and purge data when testing is concluded or when beginning a new production cycle.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Card 1: Clear Certificates Only */}
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between space-y-3">
+            <div>
+              <span className="text-xs font-bold text-slate-900 block">Clear Certificates</span>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Removes all {certCount} certificates from verification registry without altering batch metadata.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setClearTarget('certificates');
+                setConfirmInput('');
+              }}
+              className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-white hover:bg-rose-50 text-rose-700 border border-slate-200 hover:border-rose-200 flex items-center justify-center space-x-1.5 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span>Clear Certificates</span>
+            </button>
+          </div>
+
+          {/* Card 2: Clear Batches & Certs */}
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between space-y-3">
+            <div>
+              <span className="text-xs font-bold text-slate-900 block">Clear Batches & Records</span>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Deletes all {batchCount} batch packages and all issued certificate registries.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setClearTarget('batches');
+                setConfirmInput('');
+              }}
+              className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-white hover:bg-rose-50 text-rose-700 border border-slate-200 hover:border-rose-200 flex items-center justify-center space-x-1.5 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span>Clear All Batches</span>
+            </button>
+          </div>
+
+          {/* Card 3: Clear Mark Sessions */}
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between space-y-3">
+            <div>
+              <span className="text-xs font-bold text-slate-900 block">Clear Marks Sessions</span>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Purges test and evaluation mark sheets from the examination evaluation portal.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setClearTarget('marks');
+                setConfirmInput('');
+              }}
+              className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-white hover:bg-rose-50 text-rose-700 border border-slate-200 hover:border-rose-200 flex items-center justify-center space-x-1.5 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+              <span>Clear Marks Data</span>
+            </button>
+          </div>
+
+          {/* Card 4: Full Reset */}
+          <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/40 flex flex-col justify-between space-y-3">
+            <div>
+              <span className="text-xs font-bold text-rose-950 block">Complete Clean Slate</span>
+              <p className="text-[11px] text-rose-800 mt-1">
+                Wipes all certificates, batches, and examination evaluations (retains your branding).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setClearTarget('all');
+                setConfirmInput('');
+              }}
+              className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center justify-center space-x-1.5 transition-colors"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Wipe All Data</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Modal */}
+      {clearTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center space-x-3 text-rose-600">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Confirm Data Deletion</h3>
+                <p className="text-xs text-slate-500 capitalize">Target: {clearTarget}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              This action will permanently delete the selected database records.
+              Type <strong className="font-mono text-rose-600 font-bold">CONFIRM</strong> below to proceed:
+            </p>
+
+            <input
+              type="text"
+              value={confirmInput}
+              onChange={(e) => setConfirmInput(e.target.value.toUpperCase())}
+              placeholder="CONFIRM"
+              className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+            />
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isClearing}
+                onClick={() => setClearTarget(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isClearing || confirmInput !== 'CONFIRM'}
+                onClick={handleExecuteClear}
+                className={`px-5 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-all ${
+                  confirmInput === 'CONFIRM'
+                    ? 'bg-rose-600 hover:bg-rose-700 cursor-pointer'
+                    : 'bg-slate-300 cursor-not-allowed opacity-60'
+                }`}
+              >
+                {isClearing ? 'Clearing...' : 'Permanently Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

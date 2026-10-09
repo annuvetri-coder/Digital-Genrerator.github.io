@@ -323,6 +323,104 @@ class StorageService {
     return target || null;
   }
 
+  async deleteCertificate(certNumberOrId: string): Promise<boolean> {
+    const certs = await this.getCertificates();
+    const clean = certNumberOrId.trim().toLowerCase();
+    const filtered = certs.filter(
+      (c) => c.certificateNumber.toLowerCase() !== clean && c.id.toLowerCase() !== clean
+    );
+    localStorage.setItem(LOCAL_STORAGE_KEYS.CERTIFICATES, JSON.stringify(filtered));
+
+    try {
+      await fetch(`/api/certificates/${encodeURIComponent(certNumberOrId)}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeader(),
+      });
+    } catch {
+      // offline fallback
+    }
+    return true;
+  }
+
+  async deleteCertificatesBulk(certNumbers: string[]): Promise<number> {
+    const certs = await this.getCertificates();
+    const set = new Set(certNumbers.map((num) => num.trim().toLowerCase()));
+    const filtered = certs.filter(
+      (c) => !set.has(c.certificateNumber.toLowerCase()) && !set.has(c.id.toLowerCase())
+    );
+    localStorage.setItem(LOCAL_STORAGE_KEYS.CERTIFICATES, JSON.stringify(filtered));
+
+    try {
+      await fetch('/api/certificates/bulk/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...this.getAuthHeader() },
+        body: JSON.stringify({ certificateNumbers: certNumbers }),
+      });
+    } catch {
+      // offline fallback
+    }
+    return certs.length - filtered.length;
+  }
+
+  async clearAllCertificates(): Promise<void> {
+    localStorage.setItem(LOCAL_STORAGE_KEYS.CERTIFICATES, JSON.stringify([]));
+    try {
+      await fetch('/api/certificates/clear', {
+        method: 'POST',
+        headers: this.getAuthHeader(),
+      });
+    } catch {
+      // offline fallback
+    }
+  }
+
+  async clearAllBatches(): Promise<void> {
+    localStorage.setItem(LOCAL_STORAGE_KEYS.BATCHES, JSON.stringify([]));
+    try {
+      await fetch('/api/batches/clear', {
+        method: 'POST',
+        headers: this.getAuthHeader(),
+      });
+    } catch {
+      // offline fallback
+    }
+  }
+
+  async clearAllMarkSessions(): Promise<void> {
+    localStorage.setItem(LOCAL_STORAGE_KEYS.MARK_SESSIONS, JSON.stringify([]));
+    try {
+      await fetch('/api/marks/clear', {
+        method: 'POST',
+        headers: this.getAuthHeader(),
+      });
+    } catch {
+      // offline fallback
+    }
+  }
+
+  async clearAllData(options?: { keepSettings?: boolean; keepTemplates?: boolean }): Promise<void> {
+    localStorage.setItem(LOCAL_STORAGE_KEYS.CERTIFICATES, JSON.stringify([]));
+    localStorage.setItem(LOCAL_STORAGE_KEYS.BATCHES, JSON.stringify([]));
+    localStorage.setItem(LOCAL_STORAGE_KEYS.MARK_SESSIONS, JSON.stringify([]));
+
+    if (!options?.keepTemplates) {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.TEMPLATES, JSON.stringify(PRESET_TEMPLATES));
+    }
+    if (!options?.keepSettings) {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(DEFAULT_SETTINGS));
+    }
+
+    try {
+      await fetch('/api/data/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...this.getAuthHeader() },
+        body: JSON.stringify(options || {}),
+      });
+    } catch {
+      // offline fallback
+    }
+  }
+
   // --- PUBLIC VERIFICATION ---
   async verifyCertificate(certNumber: string): Promise<VerificationResult> {
     const cleanNumber = certNumber.trim().toUpperCase();

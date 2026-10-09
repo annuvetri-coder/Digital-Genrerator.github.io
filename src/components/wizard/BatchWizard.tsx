@@ -134,6 +134,41 @@ export const BatchWizard: React.FC<BatchWizardProps> = ({ onFinish, onVerifyCert
     setSelectedTemplate(saved);
   };
 
+  const handleCourseNameChange = (newCourse: string) => {
+    setCourseName(newCourse);
+    setStudents((prev) =>
+      prev.map((s) => ({
+        ...s,
+        courseName: newCourse,
+      }))
+    );
+    setSelectedTemplate((prev) => ({
+      ...prev,
+      elements: prev.elements.map((el) => {
+        if (
+          el.field === '{{COURSE_NAME}}' ||
+          el.field === '{{COURSE}}' ||
+          el.id === 'elem-course-name' ||
+          el.id === 'elem-course' ||
+          (el.label && /course/i.test(el.label))
+        ) {
+          return { ...el, sampleText: newCourse };
+        }
+        return el;
+      }),
+    }));
+  };
+
+  const handleUpdateStudentName = (index: number, newName: string) => {
+    setStudents((prev) => {
+      const copy = [...prev];
+      if (copy[index]) {
+        copy[index] = { ...copy[index], studentName: newName };
+      }
+      return copy;
+    });
+  };
+
   const handleDeleteTemplate = async (templateId: string) => {
     await api.deleteTemplate(templateId);
     setSavedTemplates((prev) => prev.filter((t) => t.id !== templateId));
@@ -302,7 +337,7 @@ export const BatchWizard: React.FC<BatchWizardProps> = ({ onFinish, onVerifyCert
             batchId={batchId}
             setBatchId={setBatchId}
             courseName={courseName}
-            setCourseName={setCourseName}
+            setCourseName={handleCourseNameChange}
             issueDate={issueDate}
             setIssueDate={setIssueDate}
             selectedTemplate={selectedTemplate}
@@ -316,6 +351,8 @@ export const BatchWizard: React.FC<BatchWizardProps> = ({ onFinish, onVerifyCert
         {currentStep === 2 && (
           <Step2TemplateEditor
             template={selectedTemplate}
+            courseName={courseName}
+            onCourseNameChange={handleCourseNameChange}
             onUpdateTemplate={setSelectedTemplate}
             onSaveAsCustomTemplate={handleSaveAsCustomTemplate}
           />
@@ -355,9 +392,11 @@ export const BatchWizard: React.FC<BatchWizardProps> = ({ onFinish, onVerifyCert
             batchName={batchName}
             batchId={batchId}
             courseName={courseName}
+            onUpdateCourseName={handleCourseNameChange}
             issueDate={issueDate}
             template={selectedTemplate}
             students={students}
+            onUpdateStudentName={handleUpdateStudentName}
             onFinishAndGoToBatches={onFinish}
             onVerifyCertificate={onVerifyCertificate}
           />

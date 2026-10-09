@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   Award,
+  Check,
   CheckCircle2,
   ExternalLink,
   Globe,
@@ -10,10 +11,13 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { VerificationResult } from '../types';
 import { api } from '../services/api';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 
 interface VerificationPortalProps {
   initialCertNumber?: string;
@@ -23,9 +27,15 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
   initialCertNumber = '',
 }) => {
   const { settings } = useSettings();
+  const { isCompanyAuthorized } = useAuth();
   const [certInput, setCertInput] = useState(initialCertNumber);
   const [isVerifying, setIsVerifying] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
+
+  // Admin Trust & Delete state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Check URL query parameters for ?id=IYT-2026-0001
   useEffect(() => {
@@ -69,6 +79,42 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
 
   const handlePrintSlip = () => {
     window.print();
+  };
+
+  const handleAdminToggleTrust = async () => {
+    if (!cert) return;
+    const newStatus = cert.status === 'valid' ? 'revoked' : 'valid';
+    await api.updateCertificateStatus(
+      cert.certificateNumber,
+      newStatus,
+      newStatus === 'revoked' ? 'Untrusted by issuing administrator via verification portal' : undefined
+    );
+    setToastMessage(
+      newStatus === 'valid'
+        ? `Certificate ${cert.certificateNumber} trust restored to Valid.`
+        : `Certificate ${cert.certificateNumber} marked as Untrusted / Revoked.`
+    );
+    await performVerification(cert.certificateNumber);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleAdminDelete = async () => {
+    if (!cert) return;
+    setIsDeleting(true);
+    try {
+      await api.deleteCertificate(cert.certificateNumber);
+      setShowDeleteModal(false);
+      setResult({
+        found: false,
+        message: `Certificate record ${cert.certificateNumber} has been permanently deleted from the registry database.`,
+      });
+      setToastMessage(`Certificate ${cert.certificateNumber} deleted permanently.`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      alert('Failed to delete certificate: ' + err.message);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const cert = result?.certificate;
@@ -167,9 +213,62 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
         </form>
       </div>
 
+      {/* Toast Notice */}
+      {toastMessage && (
+        <div className="p-3.5 rounded-xl bg-slate-900 text-white text-xs font-semibold flex items-center justify-between shadow-lg animate-in fade-in">
+          <div className="flex items-center space-x-2">
+            <Check className="w-4 h-4 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Verification Result Card */}
       {result && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-4">
+          {/* Admin Issuer Trust & Record Controls Bar */}
+          {isCompanyAuthorized && cert && (
+            <div className="p-3.5 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs border border-slate-800 shadow-md">
+              <div className="flex items-center space-x-2.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <div>
+                  <span className="font-bold text-slate-200 block">
+                    Issuer Record & Trust Controls (Authorized Admin)
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Trust status is currently: <strong className={isRevoked ? 'text-rose-400' : 'text-emerald-400'}>{isRevoked ? 'UNTRUSTED / REVOKED' : 'TRUSTED & VALID'}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleAdminToggleTrust}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    isRevoked
+                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs'
+                      : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30'
+                  }`}
+                >
+                  {isRevoked ? 'Restore Trust (Mark Valid)' : 'Untrust / Revoke'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(true)}
+                  className="px-3 py-1.5 rounded-xl font-bold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 flex items-center space-x-1 cursor-pointer transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Delete Certificate</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {result.found && cert ? (
             isRevoked ? (
               /* REVOKED CERTIFICATE CARD */
@@ -463,6 +562,48 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Admin Delete Confirmation Modal */}
+      {showDeleteModal && cert && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center space-x-3 text-rose-600">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Delete Certificate Record</h3>
+                <p className="text-xs text-slate-500 font-mono">
+                  {cert.certificateNumber} • {cert.studentName}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to permanently delete this certificate? This action removes the record entirely from the ledger.
+            </p>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleAdminDelete}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

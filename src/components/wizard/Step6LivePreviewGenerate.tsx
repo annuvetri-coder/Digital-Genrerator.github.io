@@ -8,6 +8,7 @@ import {
   Download,
   FileArchive,
   FileCheck2,
+  GraduationCap,
   Loader2,
   Lock,
   LogIn,
@@ -15,6 +16,7 @@ import {
   ShieldCheck,
   Sparkles,
   StopCircle,
+  Type,
 } from 'lucide-react';
 import {
   CertificateBatch,
@@ -37,9 +39,11 @@ interface Step6Props {
   batchName: string;
   batchId: string;
   courseName: string;
+  onUpdateCourseName?: (newCourse: string) => void;
   issueDate: string;
   template: CertificateTemplate;
   students: StudentRecord[];
+  onUpdateStudentName?: (index: number, newName: string) => void;
   onFinishAndGoToBatches: () => void;
   onVerifyCertificate: (certNum: string) => void;
 }
@@ -48,9 +52,11 @@ export const Step6LivePreviewGenerate: React.FC<Step6Props> = ({
   batchName,
   batchId,
   courseName,
+  onUpdateCourseName,
   issueDate,
   template,
   students,
+  onUpdateStudentName,
   onFinishAndGoToBatches,
   onVerifyCertificate,
 }) => {
@@ -326,6 +332,87 @@ export const Step6LivePreviewGenerate: React.FC<Step6Props> = ({
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+
+          {/* Quick Edit Course Title Bar */}
+          <div className="bg-indigo-50/70 border border-indigo-200/80 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center space-x-2">
+              <GraduationCap className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+              <div>
+                <span className="text-xs font-bold text-slate-800">Course / Program Title:</span>
+                <p className="text-[11px] text-slate-500">
+                  Updates course title live on the preview and across all certificates in this batch
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={courseName}
+                onChange={(e) => onUpdateCourseName?.(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-indigo-300 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[220px]"
+                placeholder="e.g. Full Stack Web Development"
+              />
+            </div>
+          </div>
+
+          {/* Student Name Length & Dynamic Auto-Fit Controls */}
+          <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center space-x-2">
+                <Type className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                <div>
+                  <span className="text-xs font-bold text-slate-800">Student Name & Auto-Length Fit:</span>
+                  <span className="ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Auto Font Size & Dynamic Alignment Active
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5 text-[11px]">
+                <span className="text-slate-400">Try Length:</span>
+                <button
+                  type="button"
+                  onClick={() => onUpdateStudentName?.(currentStudentIndex, 'Ali Roy')}
+                  className="px-2 py-1 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium"
+                  title="Test short name"
+                >
+                  Short (7c)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdateStudentName?.(currentStudentIndex, 'Arun Kumar')}
+                  className="px-2 py-1 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium"
+                  title="Test medium name"
+                >
+                  Medium (10c)
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateStudentName?.(
+                      currentStudentIndex,
+                      'Dr. Mohammed Abdul Rahman Al-Mansoor'
+                    )
+                  }
+                  className="px-2 py-1 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium"
+                  title="Test extra-long name"
+                >
+                  Long (36c)
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={currentStudent?.studentName || ''}
+                onChange={(e) => onUpdateStudentName?.(currentStudentIndex, e.target.value)}
+                className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Type student name to test auto-scaling..."
+              />
+              <span className="text-[11px] text-slate-500 font-mono whitespace-nowrap">
+                {currentStudent?.studentName?.length || 0} chars
+              </span>
             </div>
           </div>
 
