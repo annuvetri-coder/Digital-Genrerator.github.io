@@ -1,7 +1,7 @@
 import { CertificateTemplate, CompanySettings, StudentRecord, TemplateElement } from '../types';
 import { generateQrDataUrl } from './qrGenerator';
 import { createDefaultSignatureSvg } from './defaultTemplates';
-import { OFFICIAL_LOGO_DATA_URL, OFFICIAL_LOGO_TRANSPARENT_DATA_URL } from '../assets/logo';
+import { OFFICIAL_LOGO_TRANSPARENT_DATA_URL } from '../assets/logo';
 
 // Cache for loaded background images to speed up bulk generation
 const imageCache = new Map<string, HTMLImageElement>();
@@ -36,13 +36,13 @@ export function replacePlaceholders(
   const issueDate = student.issueDate || '05 October 2026';
   const orgName = settings.organizationName || settings.companyName || 'ITS YOUR TURN';
 
-  result = result.replace(/\{\{STUDENT_NAME\}\}/g, studentName);
-  result = result.replace(/\{\{CERTIFICATE_NUMBER\}\}/g, certNumber);
-  result = result.replace(/\{\{COURSE_NAME\}\}/g, courseName);
-  result = result.replace(/\{\{DATE\}\}/g, issueDate);
-  result = result.replace(/\{\{ORGANIZATION\}\}/g, orgName);
-  result = result.replace(/\{\{SIGNER_NAME\}\}/g, settings.signerName || 'Authorized Signatory');
-  result = result.replace(/\{\{SIGNER_TITLE\}\}/g, settings.signerTitle || 'Program Director');
+  result = result.replace(/\{\{(STUDENT_NAME|NAME|STUDENT)\}\}/gi, studentName);
+  result = result.replace(/\{\{(CERTIFICATE_NUMBER|CERT_NUMBER|CERTIFICATE_ID|CERT_ID)\}\}/gi, certNumber);
+  result = result.replace(/\{\{(COURSE_NAME|COURSE|COURSE_TITLE|PROGRAM)\}\}/gi, courseName);
+  result = result.replace(/\{\{(DATE|ISSUE_DATE)\}\}/gi, issueDate);
+  result = result.replace(/\{\{(ORGANIZATION|COMPANY|ORG_NAME)\}\}/gi, orgName);
+  result = result.replace(/\{\{SIGNER_NAME\}\}/gi, settings.signerName || 'Authorized Signatory');
+  result = result.replace(/\{\{SIGNER_TITLE\}\}/gi, settings.signerTitle || 'Program Director');
 
   if (student.marks) {
     const m = student.marks;
@@ -233,21 +233,54 @@ export async function renderCertificateToCanvas(
       continue;
     }
 
-    // Suppress any legacy or custom logo element placed in the top area (y < 50) as requested ("Don't place logo in the top")
-    const isTopLogo =
-      (element.field === '{{COMPANY_LOGO}}' || element.id === 'elem-logo' || (element.label && /logo/i.test(element.label))) &&
-      element.y < 50;
+    // Suppress any logo element on the certificate page as requested ("Keep only the watermark of the logo. Don't keep the logo in the page near QR.")
+    const isLogo =
+      element.field === '{{COMPANY_LOGO}}' ||
+      element.id === 'elem-logo' ||
+      (element.label && /logo/i.test(element.label));
 
-    if (isTopLogo) {
+    if (isLogo) {
       continue;
     }
 
     // Text rendering
     let textToDraw = element.field;
-    if (element.sampleText && !textToDraw.includes('{{')) {
-      textToDraw = element.sampleText;
+
+    // Smart detection for placeholder fields and elements
+    const isCourseElem =
+      element.field === '{{COURSE_NAME}}' ||
+      element.field === '{{COURSE}}' ||
+      element.field === '{{COURSE_TITLE}}' ||
+      element.field === '{{PROGRAM}}' ||
+      element.id === 'elem-course-name' ||
+      element.id === 'elem-course' ||
+      (element.label && /course\s*(name|title)?/i.test(element.label));
+
+    const isStudentNameElem =
+      element.field === '{{STUDENT_NAME}}' ||
+      element.field === '{{NAME}}' ||
+      element.id === 'elem-name' ||
+      element.id === 'elem-student-name' ||
+      (element.label && /student\s*name/i.test(element.label));
+
+    const isDateElem =
+      element.field === '{{DATE}}' ||
+      element.field === '{{ISSUE_DATE}}' ||
+      element.id === 'elem-date' ||
+      (element.label && /issue\s*date|date/i.test(element.label));
+
+    if (isCourseElem) {
+      textToDraw = student.courseName || element.sampleText || 'Course Name';
+    } else if (isStudentNameElem && student.studentName) {
+      textToDraw = student.studentName;
+    } else if (isDateElem && student.issueDate) {
+      textToDraw = student.issueDate;
+    } else {
+      if (element.sampleText && !textToDraw.includes('{{')) {
+        textToDraw = element.sampleText;
+      }
+      textToDraw = replacePlaceholders(textToDraw, student, settings);
     }
-    textToDraw = replacePlaceholders(textToDraw, student, settings);
 
     ctx.save();
 
@@ -340,40 +373,6 @@ export async function renderCertificateToCanvas(
     } catch (err) {
       console.warn('Failed to draw fallback signature image:', err);
     }
-  }
-
-  // --- MANDATORY OFFICIAL BRAND LOGO ON EVERY CERTIFICATE (IN FOOTER/BOTTOM, NOT TOP) ---
-  // Positioned as an official institutional seal in the bottom area cleanly without overlapping signature, date, or QR
-  try {
-    const logoImg = await loadImage(settings.logoUrl || OFFICIAL_LOGO_DATA_URL);
-    const logoSize = 100;
-
-    // Check if QR code is at the bottom center (x between 35% and 65%, y > 65%)
-    const hasCenterQr = template.elements.some(
-      (el) => (el.type === 'qr' || el.field === '{{QR_CODE}}') && el.x > 35 && el.x < 65 && el.y > 65
-    );
-
-    let logoX: number;
-    let logoY: number;
-
-    if (hasCenterQr) {
-      // Place brand logo cleanly in the open space between the left date block (ends at ~620px) and center QR (starts at ~892px)
-      // Centered at x: 720px, y: 76% (~820px)
-      logoX = 720;
-      logoY = Math.round(baseHeight * 0.76);
-    } else {
-      // Cleanly in bottom center
-      logoX = (baseWidth - logoSize) / 2;
-      logoY = Math.round(baseHeight * 0.77);
-    }
-
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.12)';
-    ctx.shadowBlur = 6;
-    ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
-    ctx.restore();
-  } catch (err) {
-    console.warn('Failed to draw official brand logo in certificate footer:', err);
   }
 
   ctx.restore();

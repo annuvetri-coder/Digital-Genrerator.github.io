@@ -153,7 +153,7 @@ export const DEFAULT_ELEMENTS: TemplateElement[] = [
     fontStyle: 'normal',
     color: '#0284C7',
     textAlign: 'center',
-    sampleText: 'IoT Training',
+    sampleText: 'Course / Program Title',
   },
   {
     id: 'elem-org',

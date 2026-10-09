@@ -29,7 +29,7 @@ import {
   DEFAULT_ELEMENTS,
   createDefaultSignatureSvg,
 } from '../../utils/defaultTemplates';
-import { OFFICIAL_LOGO_DATA_URL, OFFICIAL_LOGO_TRANSPARENT_DATA_URL } from '../../assets/logo';
+import { OFFICIAL_LOGO_TRANSPARENT_DATA_URL } from '../../assets/logo';
 import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -413,22 +413,6 @@ export const Step2TemplateEditor: React.FC<Step2Props> = ({
                 src={settings.logoUrl || OFFICIAL_LOGO_TRANSPARENT_DATA_URL}
                 alt="Certificate Security Watermark"
                 className="w-[42%] h-[42%] object-contain opacity-[0.08] select-none"
-              />
-            </div>
-
-            {/* Official Brand Logo in Bottom Area (Institutional Credential Seal) */}
-            <div
-              className="absolute pointer-events-none z-0 flex flex-col items-center"
-              style={{
-                left: '37.5%',
-                top: '76%',
-                transform: 'translate(-50%, 0)',
-              }}
-            >
-              <img
-                src={settings.logoUrl || OFFICIAL_LOGO_DATA_URL}
-                alt="Official Brand Logo"
-                className="w-11 h-11 object-contain rounded shadow-2xs select-none"
               />
             </div>
 

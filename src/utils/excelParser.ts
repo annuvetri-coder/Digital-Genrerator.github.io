@@ -369,14 +369,17 @@ export function generateSampleExcelFile(): void {
   XLSX.writeFile(workbook, 'Students_Sample_IoT_Training.xlsx');
 }
 
-export function getSampleStudentsData(): StudentRecord[] {
+export function getSampleStudentsData(
+  defaultCourse = 'Professional Training Program',
+  defaultDate = '05 October 2026'
+): StudentRecord[] {
   return [
     {
       id: 'sample-1',
       serialNo: 1,
       studentName: 'Arun Kumar',
-      courseName: 'IoT Training',
-      issueDate: '05 October 2026',
+      courseName: defaultCourse,
+      issueDate: defaultDate,
       certificateNumber: 'IYT-2026-0001',
       verificationId: 'VRF-IYT-0001',
       marks: {
@@ -395,8 +398,8 @@ export function getSampleStudentsData(): StudentRecord[] {
       id: 'sample-2',
       serialNo: 2,
       studentName: 'Bala Kumar',
-      courseName: 'IoT Training',
-      issueDate: '05 October 2026',
+      courseName: defaultCourse,
+      issueDate: defaultDate,
       certificateNumber: 'IYT-2026-0002',
       verificationId: 'VRF-IYT-0002',
       marks: {
@@ -415,8 +418,8 @@ export function getSampleStudentsData(): StudentRecord[] {
       id: 'sample-3',
       serialNo: 3,
       studentName: 'Charan Raj',
-      courseName: 'IoT Training',
-      issueDate: '05 October 2026',
+      courseName: defaultCourse,
+      issueDate: defaultDate,
       certificateNumber: 'IYT-2026-0003',
       verificationId: 'VRF-IYT-0003',
       marks: {
@@ -435,8 +438,8 @@ export function getSampleStudentsData(): StudentRecord[] {
       id: 'sample-4',
       serialNo: 4,
       studentName: 'Divya S',
-      courseName: 'IoT Training',
-      issueDate: '05 October 2026',
+      courseName: defaultCourse,
+      issueDate: defaultDate,
       certificateNumber: 'IYT-2026-0004',
       verificationId: 'VRF-IYT-0004',
       marks: {
